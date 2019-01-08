@@ -1,19 +1,22 @@
 #include <bits/stdc++.h>
-#include <CL/cl.h>
+#include <CL/cl.hpp>
 
-#define N 128
-#define M 128
+#define N 32
+#define M 32
 #define l 3
 #define m 3
 #define SIZE 200009
 #define NUM_RUNS 1
 
-char kernelStr[SIZE];
+char *kernelStr;
 
 int main() {
     float *img = (float*)malloc(N*M*sizeof(float));
     float *outimg = (float*)malloc(N*M*sizeof(float));
     float *fil = (float*)malloc(l*m*sizeof(float));
+    img[0] = img[1] = img[2] = img[3] = 1;
+    fil[0] = fil[1] = fil[2] = fil[3] = 1;
+    kernelStr = (char*)malloc(SIZE * sizeof(char));
     // Configure the OpenCL environment
     printf(">>> Initializing OpenCL...\n");
     cl_platform_id platform = 0;
@@ -27,10 +30,13 @@ int main() {
     cl_event event = NULL;
 
     // Compile the kernel
-    std::ifstream file("kernel.cl", std::ios::in);
+    std::ifstream file("kernel.cl", std::ios::in|std::ios::binary|std::ios::ate);
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
     file.read(kernelStr, SIZE);
     file.close();
-    cl_program program = clCreateProgramWithSource(context, 1, &kernelStr, NULL, NULL);
+    std::cout << kernelStr;
+    cl_program program = clCreateProgramWithSource(context, 1, (const char**)&kernelStr, NULL, NULL);
     clBuildProgram(program, 0, NULL, "", NULL, NULL);
 
     // Check for compilation errors
@@ -68,7 +74,7 @@ int main() {
     for (int r=0; r<NUM_RUNS; r++) {
 
         // Run the myGEMM kernel
-        const size_t local[2] = { TS, TS };
+        const size_t local[2] = { 1, 1 };
         const size_t global[2] = { M, N };
         clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global, local, 0, NULL, &event);
 
@@ -78,8 +84,15 @@ int main() {
 
 
     // Copy the output matrix C back to the CPU memory
-    clEnqueueReadBuffer(queue, bufOut, CL_TRUE, 0, M*N*sizeof(float), C, 0, NULL, NULL);
+    clEnqueueReadBuffer(queue, bufOut, CL_TRUE, 0, M*N*sizeof(float), outimg, NULL, NULL, NULL);
 
+    // Output the Result
+    for (int i = 0; i < M; ++i) {
+	for (int j = 0; j < N; ++j) {
+	    std::cout << outimg[N*i + j] << " ";
+	}
+    std::cout << std::endl;
+	}
     // Free the OpenCL memory objects
     clReleaseMemObject(bufImg);
     clReleaseMemObject(bufFil);
