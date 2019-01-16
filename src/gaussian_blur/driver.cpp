@@ -30,15 +30,14 @@ int main(){
     
     cl::Program::Sources sources;
     
-    std::vector<char> kernel_code;
+    std::vector<char> kcode;
     std::ifstream file("kernel.cl", std::ios::in|std::ios::binary|std::ios::ate);
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
-    file.read(kernel_code.data(), SIZE);
+    file.read(kcode.data(), SIZE);
     file.close();
-    std::cout << kernel_code;
-//	std::cout << kernel_code << std::endl;
-    std::string kcode(kernel_code.begin(), kernel_code.end());
+    std::cout << kcode;
+    std::string kernel_code(kcode.begin(), kcode.end());
     sources.push_back({kernel_code.c_str(),kernel_code.length()});
     
     cl::Program program(context,sources);
