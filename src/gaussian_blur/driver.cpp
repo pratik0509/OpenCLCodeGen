@@ -1,114 +1,103 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include<bits/stdc++.h>
+#include <vector>
+#include <string>
 #include <CL/cl.hpp>
 
-#define N 32
-#define M 32
-#define l 3
-#define m 3
-#define SIZE 200009
-#define NUM_RUNS 1
-
-char *kernelStr;
-
-int main() {
-    float *img = (float*)malloc(N*M*sizeof(float));
-    float *outimg = (float*)malloc(N*M*sizeof(float));
-    float *fil = (float*)malloc(l*m*sizeof(float));
-    img[0] = img[1] = img[2] = img[3] = 1;
-    fil[0] = fil[1] = fil[2] = fil[3] = 1;
-    kernelStr = (char*)malloc(SIZE * sizeof(char));
-    // Configure the OpenCL environment
-    printf(">>> Initializing OpenCL...\n");
-    cl_platform_id platform = 0;
-    clGetPlatformIDs(1, &platform, NULL);
-    cl_device_id device = 0;
-    clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
-    cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
-    cl_command_queue queue = clCreateCommandQueue(context, device, 0, NULL);
-    char deviceName[1024];
-    clGetDeviceInfo(device, CL_DEVICE_NAME, 1024, deviceName, NULL);
-    cl_event event = NULL;
-
-    // Compile the kernel
+int main(){
+    //get all platforms (drivers)
+    std::vector<cl::Platform> all_platforms;
+    cl::Platform::get(&all_platforms);
+    if(all_platforms.size()==0){
+        std::cout<<" No platforms found. Check OpenCL installation!\n";
+        exit(1);
+    }
+    cl::Platform default_platform=all_platforms[1];
+    std::cout << "Using platform: "<<default_platform.getInfo<CL_PLATFORM_NAME>()<<"\n";
+    
+    //get default device of the default platform
+    std::vector<cl::Device> all_devices;
+    default_platform.getDevices(CL_DEVICE_TYPE_ALL, &all_devices);
+    if(all_devices.size()==0){
+        std::cout<<" No devices found. Check OpenCL installation!\n";
+        exit(1);
+    }
+    cl::Device default_device=all_devices[0];
+    std::cout<< "Using device: "<<default_device.getInfo<CL_DEVICE_NAME>()<<"\n";
+    
+    
+    cl::Context context({default_device});
+    
+    cl::Program::Sources sources;
+    
+    std::vector<char> kernel_code;
     std::ifstream file("kernel.cl", std::ios::in|std::ios::binary|std::ios::ate);
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
-    file.read(kernelStr, SIZE);
+    file.read(kernel_code.data(), SIZE);
     file.close();
-    std::cout << kernelStr;
-    cl_program program = clCreateProgramWithSource(context, 1, (const char**)&kernelStr, NULL, NULL);
-    clBuildProgram(program, 0, NULL, "", NULL, NULL);
-
-    // Check for compilation errors
-    size_t logSize;
-    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &logSize);
-    char* messages = (char*)malloc((1+logSize)*sizeof(char));
-    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, logSize, messages, NULL);
-    messages[logSize] = '\0';
-    if (logSize > 10) { printf(">>> Compiler message: %s\n", messages); }
-    free(messages);
-
-    // Prepare OpenCL memory objects
-    cl_mem bufImg = clCreateBuffer(context, CL_MEM_READ_ONLY,  M*N*sizeof(float), NULL, NULL);
-    cl_mem bufFil = clCreateBuffer(context, CL_MEM_READ_ONLY,  l*m*sizeof(float), NULL, NULL);
-    cl_mem bufOut = clCreateBuffer(context, CL_MEM_READ_WRITE, M*N*sizeof(float), NULL, NULL);
-
-    // Copy matrices to the GPU
-    clEnqueueWriteBuffer(queue, bufImg, CL_TRUE, 0, M*N*sizeof(float), img, 0, NULL, NULL);
-    clEnqueueWriteBuffer(queue, bufFil, CL_TRUE, 0, l*m*sizeof(float), fil, 0, NULL, NULL);
-    clEnqueueWriteBuffer(queue, bufOut, CL_TRUE, 0, M*N*sizeof(float), outimg, 0, NULL, NULL);
-
-    int imgH = M, imgW = N, filH = l, filW = m;
-    // Configure the myGEMM kernel and set its arguments
-    cl_kernel kernel = clCreateKernel(program, "convolution", NULL);
-    clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&bufImg);
-    clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&bufFil);
-    clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&bufOut);
-    clSetKernelArg(kernel, 3, sizeof(int), (void*)&imgH);
-    clSetKernelArg(kernel, 4, sizeof(int), (void*)&imgW);
-    clSetKernelArg(kernel, 5, sizeof(int), (void*)&filH);
-    clSetKernelArg(kernel, 6, sizeof(int), (void*)&filW);
-
-    // Start the timed loop
-    printf(">>> Starting %d runs...\n", NUM_RUNS);
-    for (int r=0; r<NUM_RUNS; r++) {
-
-        // Run the myGEMM kernel
-        const size_t local[2] = { 1, 1 };
-        const size_t global[2] = { M, N };
-        clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global, local, 0, NULL, &event);
-
-        // Wait for calculations to be finished
-        clWaitForEvents(1, &event);
+    std::cout << kernel_code;
+//	std::cout << kernel_code << std::endl;
+    std::string kcode(kernel_code.begin(), kernel_code.end());
+    sources.push_back({kernel_code.c_str(),kernel_code.length()});
+    
+    cl::Program program(context,sources);
+    std::vector<cl::Device> devs;
+    devs.push_back(default_device);
+    if(program.build(devs)!=CL_SUCCESS){
+        std::cout<<" Error building: "<<program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device)<<"\n";
+        exit(1);
     }
+    
+    const int N = 32;
+    const int M = 32;
+    const int l = 3;
+    const int m = 3;
+    // create buffers on the device
+    cl::Buffer buffer_img(context,CL_MEM_READ_ONLY,sizeof(float)*N*M);
+    cl::Buffer buffer_fil(context,CL_MEM_READ_ONLY,sizeof(float)*l*m);
+    cl::Buffer buffer_out(context,CL_MEM_READ_WRITE,sizeof(float)*N*M);
+    cl::Buffer buffer_N(context,CL_MEM_READ_WRITE,sizeof(int));
+    cl::Buffer buffer_M(context,CL_MEM_READ_WRITE,sizeof(int));
+    cl::Buffer buffer_l(context,CL_MEM_READ_WRITE,sizeof(int));
+    cl::Buffer buffer_m(context,CL_MEM_READ_WRITE,sizeof(int));
+    
+    float img[N*M], fil[l*m], out[N*M];
+    
+    //create queue to which we will push commands for the device.
+    cl::CommandQueue queue(context,default_device);
+    
 
-
-    // Copy the output matrix C back to the CPU memory
-    clEnqueueReadBuffer(queue, bufOut, CL_TRUE, 0, M*N*sizeof(float), outimg, NULL, NULL, NULL);
-
-    // Output the Result
-    for (int i = 0; i < M; ++i) {
-	for (int j = 0; j < N; ++j) {
-	    std::cout << outimg[N*i + j] << " ";
-	}
-    std::cout << std::endl;
-	}
-    // Free the OpenCL memory objects
-    clReleaseMemObject(bufImg);
-    clReleaseMemObject(bufFil);
-    clReleaseMemObject(bufOut);
-
-    // Clean-up OpenCL 
-    clReleaseCommandQueue(queue);
-    clReleaseContext(context);
-    clReleaseProgram(program);
-    clReleaseKernel(kernel);
-
-    // Free the host memory objects
-    free(img);
-    free(outimg);
-    free(fil);
-
-    // Exit
+    queue.enqueueWriteBuffer(buffer_img,CL_TRUE,0,sizeof(float)*N*M,img);
+    queue.enqueueWriteBuffer(buffer_fil,CL_TRUE,0,sizeof(float)*l*l,fil);
+    queue.enqueueWriteBuffer(buffer_out,CL_TRUE,0,sizeof(float)*N*M,out);
+    queue.enqueueWriteBuffer(buffer_N,CL_TRUE,0,sizeof(int),&N);
+    queue.enqueueWriteBuffer(buffer_M,CL_TRUE,0,sizeof(int),&M);
+    queue.enqueueWriteBuffer(buffer_l,CL_TRUE,0,sizeof(int),&l);
+    queue.enqueueWriteBuffer(buffer_m,CL_TRUE,0,sizeof(int),&m);
+    
+    
+    //run the kernel
+//    cl::KernelFunctor simple_add(cl::Kernel(program,"simple_add"),queue,cl::NullRange,cl::NDRange(10),cl::NullRange);
+    //  simple_add(buffer_A,buffer_B,buffer_C);
+    
+    //alternative way to run the kernel
+    cl::Kernel kernel_add=cl::Kernel(program,"matrix_trace");
+    kernel_add.setArg(0,buffer_img);
+    kernel_add.setArg(0,buffer_fil);
+    kernel_add.setArg(0,buffer_out);
+    kernel_add.setArg(0,buffer_N);
+    kernel_add.setArg(0,buffer_M);
+    kernel_add.setArg(0,buffer_l);
+    kernel_add.setArg(0,buffer_m);
+    queue.enqueueNDRangeKernel(kernel_add,cl::NullRange,cl::NDRange(N, M),cl::NullRange);
+    queue.finish();
+    
+    // int C[10];
+    //read result C from the device to array C
+    queue.enqueueReadBuffer(buffer_out, CL_TRUE,0,sizeof(float)*N*M, out);
+for (int i = 0; i < 11; ++i) 
+    std::cout<<" result: \n" << out[i] << "\n";
+    
     return 0;
 }
