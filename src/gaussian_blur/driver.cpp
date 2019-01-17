@@ -4,6 +4,8 @@
 #include <string>
 #include <CL/cl.hpp>
 
+#define SIZE 50000
+
 int main(){
     //get all platforms (drivers)
     std::vector<cl::Platform> all_platforms;
@@ -36,7 +38,6 @@ int main(){
     file.seekg(0, std::ios::beg);
     file.read(kcode.data(), SIZE);
     file.close();
-    std::cout << kcode;
     std::string kernel_code(kcode.begin(), kcode.end());
     sources.push_back({kernel_code.c_str(),kernel_code.length()});
     
@@ -62,14 +63,15 @@ int main(){
     cl::Buffer buffer_m(context,CL_MEM_READ_WRITE,sizeof(int));
     
     float img[N*M], fil[l*m], out[N*M];
-    
+    for(int i = 0; i < N*M; ++i) img[i] = i+1;
+    for(int i = 0; i < l*m; ++i) fil[i] = i+1;
     //create queue to which we will push commands for the device.
     cl::CommandQueue queue(context,default_device);
     
 
     queue.enqueueWriteBuffer(buffer_img,CL_TRUE,0,sizeof(float)*N*M,img);
     queue.enqueueWriteBuffer(buffer_fil,CL_TRUE,0,sizeof(float)*l*l,fil);
-    queue.enqueueWriteBuffer(buffer_out,CL_TRUE,0,sizeof(float)*N*M,out);
+    //queue.enqueueWriteBuffer(buffer_out,CL_TRUE,0,sizeof(float)*N*M,out);
     queue.enqueueWriteBuffer(buffer_N,CL_TRUE,0,sizeof(int),&N);
     queue.enqueueWriteBuffer(buffer_M,CL_TRUE,0,sizeof(int),&M);
     queue.enqueueWriteBuffer(buffer_l,CL_TRUE,0,sizeof(int),&l);
@@ -77,25 +79,27 @@ int main(){
     
     
     //run the kernel
-//    cl::KernelFunctor simple_add(cl::Kernel(program,"simple_add"),queue,cl::NullRange,cl::NDRange(10),cl::NullRange);
-    //  simple_add(buffer_A,buffer_B,buffer_C);
+    //cl::KernelFunctor simple_add(cl::Kernel(program,"krnel"),queue,cl::NullRange,cl::NDRange(N,M),cl::NullRange);
+    //simple_add(buffer_img,buffer_fil,buffer_out, buffer_N, buffer_M, buffer_l, buffer_m);
     
     //alternative way to run the kernel
-    cl::Kernel kernel_add=cl::Kernel(program,"matrix_trace");
+    cl::Kernel kernel_add=cl::Kernel(program,"krnel");
     kernel_add.setArg(0,buffer_img);
-    kernel_add.setArg(0,buffer_fil);
-    kernel_add.setArg(0,buffer_out);
-    kernel_add.setArg(0,buffer_N);
-    kernel_add.setArg(0,buffer_M);
-    kernel_add.setArg(0,buffer_l);
-    kernel_add.setArg(0,buffer_m);
+    kernel_add.setArg(1,buffer_fil);
+    kernel_add.setArg(2,buffer_out);
+    kernel_add.setArg(3,buffer_N);
+    kernel_add.setArg(4,buffer_M);
+    kernel_add.setArg(5,buffer_l);
+    kernel_add.setArg(6,buffer_m);
     queue.enqueueNDRangeKernel(kernel_add,cl::NullRange,cl::NDRange(N, M),cl::NullRange);
-    queue.finish();
+    if(queue.finish() == CL_SUCCESS) {
+	    std::cout << "Correctly executed\n";
+    };
     
     // int C[10];
     //read result C from the device to array C
     queue.enqueueReadBuffer(buffer_out, CL_TRUE,0,sizeof(float)*N*M, out);
-for (int i = 0; i < 11; ++i) 
+for (int i = 0; i < 25; ++i) 
     std::cout<<" result: \n" << out[i] << "\n";
     
     return 0;
