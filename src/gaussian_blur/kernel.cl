@@ -9,7 +9,7 @@ NOT TESTED
 void kernel krnel(const __global float *input, const __global float *filter,
  __global float *output, int imgHeight, int imgWidth, int filHeight, int filWidth) {
     int row = get_global_id(0);
-    int col = get_global_id(1);
+    // int col = get_global_id(1);
     float output_val = 0;
     int i, j;
     for (i = 0; i < filHeight; ++i)

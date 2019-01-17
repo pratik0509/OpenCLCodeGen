@@ -14,7 +14,7 @@ int main(){
         std::cout<<" No platforms found. Check OpenCL installation!\n";
         exit(1);
     }
-    cl::Platform default_platform=all_platforms[1];
+    cl::Platform default_platform=all_platforms[0];
     std::cout << "Using platform: "<<default_platform.getInfo<CL_PLATFORM_NAME>()<<"\n";
     
     //get default device of the default platform
@@ -91,7 +91,7 @@ int main(){
     kernel_add.setArg(4,buffer_M);
     kernel_add.setArg(5,buffer_l);
     kernel_add.setArg(6,buffer_m);
-    queue.enqueueNDRangeKernel(kernel_add,cl::NullRange,cl::NDRange(N, M),cl::NullRange);
+    queue.enqueueNDRangeKernel(kernel_add,cl::NullRange,cl::NDRange(N*M),cl::NullRange);
     if(queue.finish() == CL_SUCCESS) {
 	    std::cout << "Correctly executed\n";
     };
