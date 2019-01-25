@@ -88,7 +88,11 @@ int main() {
     queue.enqueueNDRangeKernel(multiply_by, NullRange, NDRange(n), NDRange(32));
 
     queue.enqueueReadBuffer(buffer_A, CL_TRUE, 0, sizeof(int)*n, B);
-    
+    for(int i = 0; i < 20; i++)
+    {
+        cout << B[i] << " ";
+    }
+
     if (std::equal(std::begin(B), std::end(B), std::begin(C)))
         cout << "Arrays are equal!" << endl;
     else
