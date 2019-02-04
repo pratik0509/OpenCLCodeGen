@@ -64,7 +64,6 @@ int main() {
                  std::istreambuf_iterator<char>());
     sources.push_back({kernel_code.c_str(), kernel_code.length()});
 
-    // cout << kernel_code.c_str();
     Program program(context, sources);
     if (program.build({default_device}) != CL_SUCCESS) {
         cout << "Error building: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device) << std::endl;
@@ -80,14 +79,12 @@ int main() {
     queue.enqueueWriteBuffer(buffer_inp, CL_TRUE, 0, sizeof(int)*n, input);
     queue.enqueueWriteBuffer(buffer_out, CL_TRUE, 0, sizeof(int)*n, output);
     queue.enqueueWriteBuffer(buffer_fil, CL_TRUE, 0, sizeof(int)*m, filter);
-    queue.enqueueWriteBuffer(buffer_sz, CL_TRUE, 0, sizeof(int), &k);
-    // queue.enqueueWriteBuffer(buffer_B, CL_TRUE, 0, sizeof(int)*n, B);
 
     Kernel convolve = Kernel(program, "filter");
     convolve.setArg(0, buffer_inp);
     convolve.setArg(1, buffer_out);
     convolve.setArg(2, buffer_fil);
-    convolve.setArg(3, buffer_sz);
+    convolve.setArg(3, sizeof(int), &k);
 
     queue.enqueueNDRangeKernel(convolve, NullRange, NDRange(n), NullRange);
     queue.finish();
