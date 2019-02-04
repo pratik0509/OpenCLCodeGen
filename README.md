@@ -4,7 +4,7 @@
  - [ ] Code Benchmarks
     - [x] Convolution
     - [x] Image Filtering
-    - [ ] Gaussian Blur
+    - [ ] Gaussian Blur(Similar to Image Filtering)
     - [ ] Unsharp Mask
     - [ ] Harris Corner
  - [ ] Try to find out common templating areas
