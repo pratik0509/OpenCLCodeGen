@@ -47,13 +47,13 @@ Device getDevice(Platform platform, int i, bool display=false) {
 
 int main() {
     const int n = 1024;    // size of vectors
-    const int c_max = 5;   // max value to iterate to
+    const int m = 9;
 
-    int A[n], B[n], C[n];     // A is initial, B is result, C is expected result
-    for (int i=0; i<n; i++) {
-        A[i] = i;
-        C[i] = i*i;
-    }
+    int input[n], output[n], filter[m];     // A is initial, B is result, C is expected result
+    for (int i=0; i<n; i++)
+        input[i] = i;
+    for (int i = 1; i <= m; ++i)
+        filter[i-1] = i;
     Platform default_platform = getPlatform();
     Device default_device     = getDevice(default_platform, 0);
     Context context({default_device});
@@ -71,33 +71,32 @@ int main() {
         exit(1);
     }
     
-    Buffer buffer_A(context, CL_MEM_READ_WRITE, sizeof(int) * n);
-    Buffer buffer_B(context, CL_MEM_READ_WRITE, sizeof(int) * n);
+    Buffer buffer_inp(context, CL_MEM_READ_WRITE, sizeof(int) * n);
+    Buffer buffer_out(context, CL_MEM_READ_WRITE, sizeof(int) * n);
+    Buffer buffer_fil(context, CL_MEM_READ_WRITE, sizeof(int) * m);
+    Buffer buffer_sz(context, CL_MEM_READ_WRITE, sizeof(int));
     CommandQueue queue(context, default_device);
-    queue.enqueueWriteBuffer(buffer_A, CL_TRUE, 0, sizeof(int)*n, A);
+    int k = m;
+    queue.enqueueWriteBuffer(buffer_inp, CL_TRUE, 0, sizeof(int)*n, input);
+    queue.enqueueWriteBuffer(buffer_out, CL_TRUE, 0, sizeof(int)*n, output);
+    queue.enqueueWriteBuffer(buffer_fil, CL_TRUE, 0, sizeof(int)*m, filter);
+    queue.enqueueWriteBuffer(buffer_sz, CL_TRUE, 0, sizeof(int), &k);
     // queue.enqueueWriteBuffer(buffer_B, CL_TRUE, 0, sizeof(int)*n, B);
 
-    Kernel multiply_by = Kernel(program, "filter");
-    multiply_by.setArg(0, buffer_A);
-    multiply_by.setArg(1, buffer_B);
+    Kernel convolve = Kernel(program, "filter");
+    convolve.setArg(0, buffer_inp);
+    convolve.setArg(1, buffer_out);
+    convolve.setArg(2, buffer_fil);
+    convolve.setArg(3, buffer_sz);
 
-    // for (int c=2; c<=c_max; c++) {
-    //     multiply_by.setArg(1, c);
-    // }
-    queue.enqueueNDRangeKernel(multiply_by, NullRange, NDRange(n), NullRange);
+    queue.enqueueNDRangeKernel(convolve, NullRange, NDRange(n), NullRange);
     queue.finish();
-    queue.enqueueReadBuffer(buffer_B, CL_TRUE, 0, sizeof(int)*n, B);
+    queue.enqueueReadBuffer(buffer_out, CL_TRUE, 0, sizeof(int)*n, output);
     
     for(int i = 0; i < 20; i++)
     {
-        cout << B[i] << " ";
+        cout << output[i] << " ";
     }
-    if (std::equal(std::begin(B), std::end(B), std::begin(C)))
-    
-        cout << "Arrays are equal!" << endl;
-    else
-        cout << "Uh-oh, the arrays aren't equal!" << endl;
-
     return 0;
 }
 
