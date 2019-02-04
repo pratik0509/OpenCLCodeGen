@@ -2,6 +2,8 @@
 ## Checklist
  - [x] Familiarize with OpenCL Fairly
  - [ ] Code Benchmarks
+    - [x] Convolution
+    - [x] Image Filtering
     - [ ] Gaussian Blur
     - [ ] Unsharp Mask
     - [ ] Harris Corner
