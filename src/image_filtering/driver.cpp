@@ -98,9 +98,10 @@ int main() {
     queue.finish();
     queue.enqueueReadBuffer(buffer_out, CL_TRUE, 0, sizeof(int)*n, output);
     
-    for(int i = 0; i < 20; i++)
-    {
-        cout << output[i] << " ";
+    for(int i = 0; i < 32; i++) {
+        for (int j = 0; j < 32; j++)
+            cout << output[i * 32 + j] << " ";
+        cout << endl;
     }
     return 0;
 }
